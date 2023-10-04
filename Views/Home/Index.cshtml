@@ -1,0 +1,261 @@
+﻿@model HomeViewModel;
+
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <button class="btn btn-primary GenerateInvoice float-end ">Generate Invoice</button>
+        <a asp-action="InvoiceList" asp-controller="Home" class="btn btn-primary w-md float-end  me-3 ">Invoice List</a>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-group mb-2">
+                    <label asp-for="@Model.PartyName"></label>
+                    <input asp-for="@Model.PartyName" class="form-control" />
+                    <span asp-validation-for="@Model.PartyName" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group mb-2">
+                    <label asp-for="@Model.Amount"></label>
+                    <input asp-for="@Model.Amount" disabled class="form-control" />
+                    <span asp-validation-for="@Model.Amount" class="text-danger"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+<div class="card mt-5 p-3">
+    <div class="card-title">
+        <div class="row">
+            <div class="col-md-3">
+                <h4 class="float-start"> Inventory Items</h4>
+            </div>
+            <div class="col-md-3">
+            </div>
+            <div class="col-md-3"></div>
+        </div>
+    </div>
+    <div class="card-body">
+        <button id="addRow" class="btn btn-sm btn-outline-primary float-end" type="button">Add Row</button>
+        <table id="myTable">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Customer</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="">
+                    <td>
+                        <select id="pid" class="form-select inventory">
+                            <option value="">Select Inventory</option>
+                            @foreach (var item in @Model.Products)
+                            {
+                                <option value="@item.ProductId">@item.ProductName</option>
+                            }
+                        </select>
+                    </td>
+                    <td><input type="text" class="form-control customer" disabled /></td>
+                    <td><input type="number" class="form-control qty" value="1" /></td>
+                    <td><input type="number" class="form-control rate" value="0" /></td>
+                    <td><input type="number" class="form-control amount" disabled /></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts{
+    <script>
+        $(document).ready(function () {
+
+            
+            fillcustomer();
+
+            $("#PartyName").keyup(function () {
+                fillcustomer();
+            });
+
+            // Add a new row when the "New Row" button is clicked
+            $('#addRow').click(function () {
+
+                // Create a select element
+                var selectElement = $('<select>', {
+                    id: 'pid',
+                    name: 'pid'
+                });
+                var firstSelectElement = $('<option>', {
+                    value: "",
+                    text: "Select Inventory"
+                });
+
+                selectElement.append(firstSelectElement);
+
+                var url = '@Url.Action("GetProducts","Home")';
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function (data) {
+                        $.each(data, function (index, option) {
+                            var optionElement = $('<option>', {
+                                value: option.productId,
+                                text: option.productName
+                            });
+
+                            selectElement.append(optionElement);
+                        });
+
+                        $(selectElement).addClass("form-select").addClass("inventory");
+
+                        var customer = $("#PartyName").val();
+
+                        var newRow = $('<tr></tr>');
+                        var td1 = $('<td></td>').html(selectElement);
+                        var td2 = $('<td><input type="text" class="form-control customer" disabled value="' + customer + '" /></td>');
+                        var td3 = $('<td><input type="number" class="form-control qty" value="1" /></td>');
+                        var td4 = $('<td><input type="number" class="form-control rate" value="0" /></td>');
+                        var td5 = $('<td><input type="number" class="form-control amount" disabled /></td>');
+                        var td6 = $('<td><button class="removeRow btn btn-sm btn-sm-danger " >Remove</button></td>');
+
+                        $(newRow).append(td1).append(td2).append(td3).append(td4).append(td5).append(td6);
+
+                        $('#myTable tbody').append(newRow);
+                    },
+                    error: function (error) {
+                        console.error(error);
+                    }
+                });
+
+
+            });
+
+            $('#myTable tbody').on('click', '.removeRow', function () {
+                $(this).closest('tr').remove();
+                updateTotalAmount();
+            });
+
+
+            ///Generating invoice
+            $(".GenerateInvoice").click(function (e) {
+
+                e.preventDefault();
+
+                var rows = $('#myTable tbody tr');
+
+                var customer = $("#PartyName").val();
+                var totamt = parseFloat($("#Amount").val());
+
+                var objary = [];
+                var inventoryempty = false;
+                var qtyInvalidate = false;
+
+                $.each(rows, function (index, tr) {
+
+                    var inventoryId = $(tr).find(".inventory").val();
+                    var rate = $(tr).find(".rate").val();
+                    var qty = $(tr).find(".qty").val();
+                    var amount = $(tr).find(".amount").val();
+
+                    if (inventoryId == undefined || inventoryId == '') {
+                        inventoryempty = true;
+                    }
+
+                    if (parseInt(qty) == 0 || parseInt(qty) < 0 || qty == '')
+                        qtyInvalidate = true;
+
+                    var obj = {
+                        inventory: inventoryId,
+                        rate: rate,
+                        qty: qty,
+                        amount: amount
+                    };
+
+                    objary.push(obj);
+                });
+
+
+
+                if (customer == undefined || customer == '') {
+                    alert("Please enter customer name.");
+                    return;
+                }
+
+                if (inventoryempty == true) {
+                    alert("Please select inventory.");
+                    return;
+                }
+
+                if (qtyInvalidate == true) {
+                    alert("Invalid quantity.");
+                    return;
+                }
+
+                if (objary.length == 0) {
+                    alert("Please add atleast one product.");
+                    return;
+                }
+
+                var obj = {
+                    PartyName: customer,
+                    TotalAmount: totamt,
+                    items: objary
+                }
+
+                var url = '@Url.Action("GenerateInvoice","Home")';
+
+
+                $.ajax({
+                    url: url,
+                    data: obj,
+                    type: 'post',
+                    success: function (invoiceno) {
+                        var url = '@Url.Action("ViewInvoice","Home")' + '?InvoiceNo=' + invoiceno;
+                        window.location.href = url;
+                    }
+                });
+
+            });
+
+
+            
+            $(document).on("keyup", ".qty, .rate", function () {
+                var qty = parseInt($(this).parent().parent().find(".qty").val());
+                var rate = parseFloat($(this).parent().parent().find(".rate").val());
+
+                var amount = qty * rate;
+                $(this).parent().parent().find(".amount").val(amount);
+
+                updateTotalAmount();
+            });
+
+            ///Fill customer in item row
+            function fillcustomer() {
+                var customer = $("#PartyName").val();
+                $(document).find("#myTable tbody tr td .customer").val(customer);
+            }
+
+            /// update total amount in head 
+            function updateTotalAmount() {
+                var rows = $('#myTable tbody tr');
+                var amt = 0;
+                $.each(rows, function (ind, tr) {
+                    amt += parseFloat(($(tr).find('.amount').val()));
+                });
+
+                $("#Amount").val(amt);
+            }
+        });
+    </script>
+}
